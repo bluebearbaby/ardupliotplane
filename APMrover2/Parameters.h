@@ -284,8 +284,10 @@ public:
     // var_info for holding Parameter information
     static const struct AP_Param::GroupInfo var_info[];
 
+#if STATS_ENABLED == ENABLED
     // vehicle statistics
     AP_Stats stats;
+#endif
 
     // whether to enforce acceptance of packets only from sysid_my_gcs
     AP_Int8 sysid_enforce;
@@ -300,6 +302,7 @@ public:
     // advanced failsafe library
     AP_AdvancedFailsafe_Rover afs;
 #endif
+
     AP_Beacon beacon;
 
     // Visual Odometry camera
@@ -329,6 +332,15 @@ public:
 
     // frame class for vehicle
     AP_Int8 frame_class;
+
+    // fence library
+    AC_Fence fence;
+
+    // proximity library
+    AP_Proximity proximity;
+
+    // avoidance library
+    AC_Avoid avoid;
 };
 
 extern const AP_Param::Info var_info[];

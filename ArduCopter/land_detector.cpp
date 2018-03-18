@@ -16,7 +16,7 @@ void Copter::update_land_and_crash_detectors()
     // update 1hz filtered acceleration
     Vector3f accel_ef = ahrs.get_accel_ef_blended();
     accel_ef.z += GRAVITY_MSS;
-    land_accel_ef_filter.apply(accel_ef, MAIN_LOOP_SECONDS);
+    land_accel_ef_filter.apply(accel_ef, scheduler.get_loop_period_s());
 
     update_land_detector();
 
@@ -104,7 +104,9 @@ void Copter::set_land_complete(bool b)
     }
     ap.land_complete = b;
 
+#if STATS_ENABLED == ENABLED
     g2.stats.set_flying(!b);
+#endif
 
     // tell AHRS flying state
     ahrs.set_likely_flying(!b);

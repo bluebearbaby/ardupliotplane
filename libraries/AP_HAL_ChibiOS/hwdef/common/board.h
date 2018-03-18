@@ -18,16 +18,17 @@
 
 #include "hwdef.h"
 
-#ifndef PPM_ICU_CHANNEL
-#define PPM_ICU_CHANNEL ICU_CHANNEL_2
-#endif
-
 #ifndef HAL_BOARD_INIT_HOOK_DEFINE
 #define HAL_BOARD_INIT_HOOK_DEFINE
 #endif
 
 #ifndef HAL_BOARD_INIT_HOOK_CALL
 #define HAL_BOARD_INIT_HOOK_CALL
+#endif
+
+// default to interrupts on port D
+#ifndef HAL_GPIO_INTERRUPT_PORT
+#define HAL_GPIO_INTERRUPT_PORT EXT_MODE_GPIOD
 #endif
 
 #if !defined(_FROM_ASM_)

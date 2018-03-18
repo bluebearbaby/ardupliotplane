@@ -51,6 +51,7 @@ endif
 
 ifeq ($(USE_FATFS),)
   USE_FATFS = yes
+  FATFS_FLAGS=-DUSE_FATFS
 endif
 
 #
@@ -104,6 +105,7 @@ include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
 include $(CHIBIOS)/os/hal/lib/streams/streams.mk
 
 ifeq ($(USE_FATFS),yes)
+include $(CHIBIOS)/os/various/cpp_wrappers/chcpp.mk
 include $(CHIBIOS)/os/various/fatfs_bindings/fatfs.mk
 endif
 
@@ -123,7 +125,6 @@ CSRC = $(STARTUPSRC) \
 	   $(HWDEF)/common/stubs.c \
 	   $(HWDEF)/common/board.c \
 	   $(HWDEF)/common/usbcfg.c \
-	   $(HWDEF)/common/ppm.c \
 	   $(HWDEF)/common/flash.c \
 	   $(HWDEF)/common/malloc.c \
 	   $(HWDEF)/common/stdio.c \
@@ -139,7 +140,7 @@ endif
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
-CPPSRC =
+CPPSRC = $(CHCPPSRC)
 
 # C sources to be compiled in ARM mode regardless of the global setting.
 # NOTE: Mixing ARM and THUMB mode enables the -mthumb-interwork compiler
@@ -167,7 +168,7 @@ ASMXSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
 INCDIR = $(CHIBIOS)/os/license \
          $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) $(FATFSINC) \
-         $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) $(VARIOUSINC) \
+         $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) $(VARIOUSINC) $(CHCPPINC) \
 		 $(HWDEF)/common
 
 #
@@ -218,7 +219,7 @@ CPPWARN = -Wall -Wextra -Wundef
 #
 
 # List all user C define here, like -D_DEBUG=1
-UDEFS =
+UDEFS = $(FATFS_FLAGS) -DHAL_BOARD_NAME=\"$(HAL_BOARD_NAME)\"
 
 # Define ASM defines here
 UADEFS =

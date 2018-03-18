@@ -1,8 +1,6 @@
 #include "mode.h"
 #include "Rover.h"
 
-#define MODE_AHRS_GPS_ERROR_MAX    10      // accept up to 10m difference between AHRS and GPS
-
 Mode::Mode() :
     ahrs(rover.ahrs),
     g(rover.g),
@@ -19,53 +17,26 @@ void Mode::exit()
     _exit();
 }
 
-// these are basically the same checks as in AP_Arming:
-bool Mode::enter_gps_checks() const
-{
-    const AP_GPS &gps = AP::gps();
-
-    if (gps.status() < AP_GPS::GPS_OK_FIX_3D) {
-        gcs().send_text(MAV_SEVERITY_CRITICAL, "Bad GPS Position");
-        return false;
-    }
-    //GPS update rate acceptable
-    if (!gps.is_healthy()) {
-        gcs().send_text(MAV_SEVERITY_CRITICAL, "GPS is not healthy");
-        return false;
-    }
-
-    // check GPSs are within 50m of each other and that blending is healthy
-    float distance_m;
-    if (!gps.all_consistent(distance_m)) {
-        gcs().send_text(MAV_SEVERITY_CRITICAL,
-                        "GPS positions differ by %4.1fm",
-                        (double)distance_m);
-        return false;
-    }
-    if (!gps.blend_health_check()) {
-        gcs().send_text(MAV_SEVERITY_CRITICAL, "GPS blending unhealthy");
-        return false;
-    }
-
-    // check AHRS and GPS are within 10m of each other
-    const Location gps_loc = gps.location();
-    Location ahrs_loc;
-    if (ahrs.get_position(ahrs_loc)) {
-        float distance = location_3d_diff_NED(gps_loc, ahrs_loc).length();
-        if (distance > MODE_AHRS_GPS_ERROR_MAX) {
-            gcs().send_text(MAV_SEVERITY_CRITICAL, "GPS and AHRS differ by %4.1fm", (double)distance);
-            return false;
-        }
-    }
-
-    return true;
-}
-
 bool Mode::enter()
 {
     const bool ignore_checks = !hal.util->get_soft_armed();   // allow switching to any mode if disarmed.  We rely on the arming check to perform
     if (!ignore_checks) {
-        if (requires_gps() && !enter_gps_checks()) {
+
+        // get EKF filter status
+        nav_filter_status filt_status;
+        rover.ahrs.get_filter_status(filt_status);
+
+        // check position estimate.  requires origin and at least one horizontal position flag to be true
+        Location origin;
+        const bool position_ok = ahrs.get_origin(origin) &&
+                                (filt_status.flags.horiz_pos_abs || filt_status.flags.pred_horiz_pos_abs ||
+                                 filt_status.flags.horiz_pos_rel || filt_status.flags.pred_horiz_pos_rel);
+        if (requires_position() && !position_ok) {
+            return false;
+        }
+
+        // check velocity estimate (if we have position estimate, we must have velocity estimate)
+        if (requires_velocity() && !position_ok && !filt_status.flags.horiz_vel) {
             return false;
         }
     }
@@ -105,7 +76,7 @@ void Mode::get_pilot_desired_steering_and_throttle(float &steering_out, float &t
             throttle_out = 0.5f * (left_paddle + right_paddle) * 100.0f;
 
             const float steering_dir = is_negative(throttle_out) ? -1 : 1;
-            steering_out = steering_dir * (left_paddle - right_paddle) * 4500.0f;
+            steering_out = steering_dir * (left_paddle - right_paddle) * 0.5f * 4500.0f;
             break;
         }
 
@@ -126,8 +97,13 @@ void Mode::get_pilot_desired_steering_and_throttle(float &steering_out, float &t
 // set desired location
 void Mode::set_desired_location(const struct Location& destination, float next_leg_bearing_cd)
 {
-    // record targets
-    _origin = rover.current_loc;
+    // set origin to last destination if waypoint controller active
+    if ((AP_HAL::millis() - last_steer_to_wp_ms < 100) && _reached_destination) {
+        _origin = _destination;
+    } else {
+        // otherwise use reasonable stopping point
+        calc_stopping_location(_origin);
+    }
     _destination = destination;
 
     // initialise distance
@@ -137,13 +113,13 @@ void Mode::set_desired_location(const struct Location& destination, float next_l
     // set final desired speed
     _desired_speed_final = 0.0f;
     if (!is_equal(next_leg_bearing_cd, MODE_NEXT_HEADING_UNKNOWN)) {
-        // if not turning can continue at full speed
-        if (is_zero(next_leg_bearing_cd)) {
+        const float curr_leg_bearing_cd = get_bearing_cd(_origin, _destination);
+        const float turn_angle_cd = wrap_180_cd(next_leg_bearing_cd - curr_leg_bearing_cd);
+        if (is_zero(turn_angle_cd)) {
+            // if not turning can continue at full speed
             _desired_speed_final = _desired_speed;
         } else {
             // calculate maximum speed that keeps overshoot within bounds
-            const float curr_leg_bearing_cd = get_bearing_cd(_origin, _destination);
-            const float turn_angle_cd = wrap_180_cd(next_leg_bearing_cd - curr_leg_bearing_cd);
             const float radius_m = fabsf(g.waypoint_overshoot / (cosf(radians(turn_angle_cd * 0.01f)) - 1.0f));
             _desired_speed_final = MIN(_desired_speed, safe_sqrt(g.turn_max_g * GRAVITY_MSS * radius_m));
         }
@@ -201,7 +177,15 @@ void Mode::calc_throttle(float target_speed, bool nudge_allowed)
     }
 
     // call throttle controller and convert output to -100 to +100 range
-    float throttle_out = 100.0f * attitude_control.get_throttle_out_speed(target_speed, g2.motors.limit.throttle_lower, g2.motors.limit.throttle_upper, g.speed_cruise, g.throttle_cruise * 0.01f);
+    float throttle_out;
+
+    // call speed or stop controller
+    if (is_zero(target_speed)) {
+        bool stopped;
+        throttle_out = 100.0f * attitude_control.get_throttle_out_stop(g2.motors.limit.throttle_lower, g2.motors.limit.throttle_upper, g.speed_cruise, g.throttle_cruise * 0.01f, stopped);
+    } else {
+        throttle_out = 100.0f * attitude_control.get_throttle_out_speed(target_speed, g2.motors.limit.throttle_lower, g2.motors.limit.throttle_upper, g.speed_cruise, g.throttle_cruise * 0.01f);
+    }
 
     // send to motor
     g2.motors.set_throttle(throttle_out);
@@ -265,7 +249,7 @@ float Mode::calc_speed_nudge(float target_speed, float cruise_speed, float cruis
     const float vehicle_speed_max = calc_speed_max(cruise_speed, cruise_throttle);
 
     // return unadjusted target if already over vehicle's projected maximum speed
-    if (target_speed >= vehicle_speed_max) {
+    if (fabsf(target_speed) >= vehicle_speed_max) {
         return target_speed;
     }
 
@@ -323,6 +307,9 @@ float Mode::calc_reduced_speed_for_turn_or_distance(float desired_speed)
 // this function updates the _yaw_error_cd value
 void Mode::calc_steering_to_waypoint(const struct Location &origin, const struct Location &destination, bool reversed)
 {
+    // record system time of call
+    last_steer_to_wp_ms = AP_HAL::millis();
+
     // Calculate the required turn of the wheels
     // negative error = left turn
     // positive error = right turn
@@ -371,4 +358,29 @@ void Mode::calc_steering_to_heading(float desired_heading_cd, bool reversed)
     const float yaw_error = wrap_PI(radians((desired_heading_cd - ahrs.yaw_sensor) * 0.01f));
     const float steering_out = attitude_control.get_steering_out_angle_error(yaw_error, g2.motors.have_skid_steering(), g2.motors.limit.steer_left, g2.motors.limit.steer_right, reversed);
     g2.motors.set_steering(steering_out * 4500.0f);
+}
+
+// calculate vehicle stopping point using current location, velocity and maximum acceleration
+void Mode::calc_stopping_location(Location& stopping_loc)
+{
+    // default stopping location
+    stopping_loc = rover.current_loc;
+
+    // get current velocity vector and speed
+    const Vector2f velocity = ahrs.groundspeed_vector();
+    const float speed = velocity.length();
+
+    // avoid divide by zero
+    if (!is_positive(speed)) {
+        stopping_loc = rover.current_loc;
+        return;
+    }
+
+    // get stopping distance in meters
+    const float stopping_dist = attitude_control.get_stopping_distance(speed);
+
+    // calculate stopping position from current location in meters
+    const Vector2f stopping_offset = velocity.normalized() * stopping_dist;
+
+    location_offset(stopping_loc, stopping_offset.x, stopping_offset.y);
 }

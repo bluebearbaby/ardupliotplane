@@ -254,6 +254,22 @@
 #define STM32_ICU_TIM9_IRQ_PRIORITY         7
 
 /*
+ * EICU driver system settings.
+ */
+#define STM32_EICU_TIM1_IRQ_PRIORITY         7
+#define STM32_EICU_TIM2_IRQ_PRIORITY         7
+#define STM32_EICU_TIM3_IRQ_PRIORITY         7
+#define STM32_EICU_TIM4_IRQ_PRIORITY         7
+#define STM32_EICU_TIM5_IRQ_PRIORITY         7
+#define STM32_EICU_TIM8_IRQ_PRIORITY         7
+#define STM32_EICU_TIM9_IRQ_PRIORITY         7
+#define STM32_EICU_TIM10_IRQ_PRIORITY        7
+#define STM32_EICU_TIM11_IRQ_PRIORITY        7
+#define STM32_EICU_TIM12_IRQ_PRIORITY        7
+#define STM32_EICU_TIM13_IRQ_PRIORITY        7
+#define STM32_EICU_TIM14_IRQ_PRIORITY        7
+
+/*
  * MAC driver system settings.
  */
 #define STM32_MAC_TRANSMIT_BUFFERS          2
@@ -339,13 +355,27 @@
 /*
  * USB driver system settings.
  */
+#ifndef STM32_USB_OTG1_IRQ_PRIORITY
 #define STM32_USB_OTG1_IRQ_PRIORITY         14
+#endif
+#ifndef STM32_USB_OTG2_IRQ_PRIORITY
 #define STM32_USB_OTG2_IRQ_PRIORITY         14
+#endif
+#ifndef STM32_USB_OTG1_RX_FIFO_SIZE
 #define STM32_USB_OTG1_RX_FIFO_SIZE         512
+#endif
+#ifndef STM32_USB_OTG2_RX_FIFO_SIZE
 #define STM32_USB_OTG2_RX_FIFO_SIZE         1024
+#endif
+#ifndef STM32_USB_OTG_THREAD_PRIO
 #define STM32_USB_OTG_THREAD_PRIO           LOWPRIO
+#endif
+#ifndef STM32_USB_OTG_THREAD_STACK_SIZE
 #define STM32_USB_OTG_THREAD_STACK_SIZE     128
+#endif
+#ifndef STM32_USB_OTGFIFO_FILL_BASEPRI
 #define STM32_USB_OTGFIFO_FILL_BASEPRI      0
+#endif
 
 /*
  * WDG driver system settings.
