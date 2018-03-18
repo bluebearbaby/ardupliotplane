@@ -470,13 +470,13 @@ bool AP_Mission::read_cmd_from_storage(uint16_t index, Mission_Command& cmd) con
         uint16_t pos_in_storage = 4 + (index * AP_MISSION_EEPROM_COMMAND_SIZE);
 
         uint8_t b1 = _storage.read_byte(pos_in_storage);
-        if (b1 == 0) {
+        if (b1 == 0) {//16bit command id
             cmd.id = _storage.read_uint16(pos_in_storage+1);
-            cmd.p1 = _storage.read_uint16(pos_in_storage+3);
+            cmd.p1 = _storage.read_uint16(pos_in_storage+3);//index(1)+2+2+10=15
             _storage.read_block(cmd.content.bytes, pos_in_storage+5, 10);
         } else {
             cmd.id = b1;
-            cmd.p1 = _storage.read_uint16(pos_in_storage+1);
+            cmd.p1 = _storage.read_uint16(pos_in_storage+1);////index(1)+1+1+12=15
             _storage.read_block(cmd.content.bytes, pos_in_storage+3, 12);
         }
 

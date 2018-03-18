@@ -345,7 +345,7 @@ void Copter::ModeAuto::do_nav_wp(const AP_Mission::Mission_Command& cmd)
             target_loc.set_alt_cm(current_loc.alt, current_loc.get_alt_frame());
         }
     }
-    
+
     // this will be used to remember the time in millis after we reach or pass the WP.
     loiter_time = 0;
     // this is the delay, stored in seconds

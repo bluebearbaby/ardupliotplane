@@ -35,9 +35,13 @@ void Plane::adjust_altitude_target()
         // during a landing flare, use TECS_LAND_SINK as a target sink
         // rate, and ignores the target altitude
         set_target_altitude_location(next_WP_loc);
+         gcs().send_text(MAV_SEVERITY_INFO,"target alt: %f , plane alt: %f ",(double)target_altitude.amsl_cm, (double)adjusted_altitude_cm() );
+        
     } else if (landing.is_on_approach()) {
         landing.setup_landing_glide_slope(prev_WP_loc, next_WP_loc, current_loc, target_altitude.offset_cm);
         landing.adjust_landing_slope_for_rangefinder_bump(rangefinder_state, prev_WP_loc, next_WP_loc, current_loc, auto_state.wp_distance, target_altitude.offset_cm);
+        gcs().send_text(MAV_SEVERITY_INFO,"target alt: %f , plane alt: %f ",(double)target_altitude.amsl_cm, (double)adjusted_altitude_cm() );
+
     } else if (landing.get_target_altitude_location(target_location)) {
        set_target_altitude_location(target_location);
     } else if (reached_loiter_target()) {
@@ -56,6 +60,7 @@ void Plane::adjust_altitude_target()
     }
 
     altitude_error_cm = calc_altitude_error_cm();
+
 }
 
 /*

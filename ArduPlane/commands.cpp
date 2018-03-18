@@ -54,6 +54,9 @@ void Plane::set_next_WP(const struct Location &loc)
         gcs().send_text(MAV_SEVERITY_NOTICE, "Resetting previous waypoint");
         prev_WP_loc = current_loc;
     }
+    
+    hal.console->printf("hello world,print first message.");
+    gcs().send_text(MAV_SEVERITY_INFO, "print first message using console");
 
     // used to control FBW and limit the rate of climb
     // -----------------------------------------------
